@@ -1,0 +1,3 @@
+C:\Users\Ryan\Documents\My Tresors\Projects\TestAngularSP\bin\Debug\TestAngularSP.pdb
+C:\Users\Ryan\Documents\My Tresors\Projects\TestAngularSP\obj\Debug\TestAngularSP.dll
+C:\Users\Ryan\Documents\My Tresors\Projects\TestAngularSP\obj\Debug\TestAngularSP.pdb

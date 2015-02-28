@@ -1,0 +1,8 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Elements xmlns="http://schemas.microsoft.com/sharepoint/">
+  <Module Name="Content">
+    <File Path="Content\App.css" Url="Content/App.css" ReplaceContent="TRUE" />
+    <File Path="Content\ListOps.html" Url="Content/ListOps.html" ReplaceContent="TRUE" />
+    <File Path="Content\SearchOps.html" Url="Content/SearchOps.html" ReplaceContent="TRUE" />
+  </Module>
+</Elements>

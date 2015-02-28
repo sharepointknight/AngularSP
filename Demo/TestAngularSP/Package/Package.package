@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package dslVersion="1.0.0.0" 
+        Id="47982343-8a7a-42da-9829-a3166efbf456" 
+        solutionId="47982343-8a7a-42da-9829-a3166efbf456" 
+        xmlns="http://schemas.microsoft.com/VisualStudio/2008/SharePointTools/PackageModel" 
+        name="TestAngularSP"
+        sharePointProductVersion="16.0">
+  <features>
+        <featureReference itemId="531fa817-f04a-41fb-870d-b4a9b378bff5" />
+  </features>
+</package>

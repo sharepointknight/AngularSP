@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Solution xmlns="http://schemas.microsoft.com/sharepoint/" SolutionId="47982343-8a7a-42da-9829-a3166efbf456" SharePointProductVersion="16.0">
+  <FeatureManifests>
+    <FeatureManifest Location="TestAngularSP_Feature1\Feature.xml" />
+  </FeatureManifests>
+</Solution>

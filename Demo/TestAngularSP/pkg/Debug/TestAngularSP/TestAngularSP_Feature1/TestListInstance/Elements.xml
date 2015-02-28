@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Elements xmlns="http://schemas.microsoft.com/sharepoint/">
+  <ListInstance Title="TestList"
+                OnQuickLaunch="TRUE"
+                TemplateType="100"
+                Url="Lists/TestList"
+                Description="My List Instance">
+    <Data>
+      <Rows>
+        <Row>
+          <Field Name="Title">Item 1</Field>
+        </Row>
+        <Row>
+          <Field Name="Title">Item 2</Field>
+        </Row>
+        <Row>
+          <Field Name="Title">Item 3</Field>
+        </Row>
+        <Row>
+          <Field Name="Title">Item 4</Field>
+        </Row>
+        <Row>
+          <Field Name="Title">Item 5</Field>
+        </Row>
+      </Rows>
+    </Data>
+  </ListInstance>
+</Elements>

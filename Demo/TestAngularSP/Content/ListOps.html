@@ -1,0 +1,16 @@
+﻿<div ng-controller="ListOpsController">
+    <h1>List Operations</h1>
+
+    <br />
+    <select ng-model="Method">
+        <option value="REST">REST</option>
+        <option value="CSOM">CSOM</option>
+    </select><br /><br />
+
+    <h2>Get List Items</h2>
+    <input type="button" value="Get List Items" ng-click="GetListItems()" /><br />
+
+    <ul>
+        <li ng-repeat="item in Items"><input type="text" ng-model="item.Title" /><a href="javascript:void(0)" ng-click="UpdateItem(item)">Update</a><a href="javascript:void(0)" ng-click="DeleteItem(item)">Delete</a></li>
+    </ul>
+</div>
