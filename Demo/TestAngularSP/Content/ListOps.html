@@ -13,4 +13,7 @@
     <ul>
         <li ng-repeat="item in Items"><input type="text" ng-model="item.Title" /><a href="javascript:void(0)" ng-click="UpdateItem(item)">Update</a><a href="javascript:void(0)" ng-click="DeleteItem(item)">Delete</a></li>
     </ul>
+
+    <h2>Create Item</h2>
+    <input type="text" ng-model="NewItemTitle" /><input type="button" value="Create Item" ng-click="CreateItem()" />
 </div>

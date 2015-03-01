@@ -7,6 +7,22 @@
 var angularSP = angular.module('AngularSP', []);
 angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
     var self = this;
+    this.SetDigestExpiration = function SetDigestExpiration(ticks)
+    {
+
+    }
+    this.DigestExpires = null;
+    this.GetUpdatedDigest = function GetUpdateDigest(webUrl)
+    {
+        webUrl = self.SanitizeWebUrl(webUrl);
+        var promise = $http({
+            url: webUrl + "/_api/contextinfo",
+            method: "POST",
+            headers: {
+                "Accept": "application/json;odata=verbose"
+            }
+        });
+    }
     this.GetItemTypeForListName = function GetItemTypeForListName(name) {
         return "SP.Data." + name.charAt(0).toUpperCase() + name.split(" ").join("").slice(1) + "ListItem";
     }
@@ -20,11 +36,12 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
             url = _spPageContextInfo.siteAbsoluteUrl;
         return url;
     }
-    this.CreateListItem = function CreateListItem(listName, item, webUrl) {
+    this.CreateListItem = function CreateListItem(listName, webUrl, item) {
         var itemType = self.GetItemTypeForListName(listName);
-        item["__metadata"] = { "type": itemType };
+        //item["__metadata"] = { "type": itemType };
         webUrl = self.SanitizeWebUrl(webUrl);
 
+        var deff = $q.defer();
         var promise = $http({
             url: webUrl + "/_api/web/lists/getbytitle('" + listName + "')/items",
             method: "POST",
@@ -34,7 +51,8 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
                 "X-RequestDigest": $("#__REQUESTDIGEST").val()
             }
         });
-        return promise;
+        promise.then(function (data) { deff.resolve(data.data.d) }, function (data) { deff.reject(data) });
+        return deff.promise;
     }
 
     this.GetItemById = function GetItemById(itemId, listName, webUrl, extraParams) {
@@ -51,7 +69,7 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
 
         return promise;
     }
-    this.GetListItems = function GetListItems(listName, webUrl, filter, sort, extraData) {
+    this.GetListItems = function GetListItems(listName, webUrl, filter, sort) {
         webUrl = self.SanitizeWebUrl(webUrl);
         var url = webUrl + "/_api/web/lists/getbytitle('" + listName + "')/items";
         if (typeof (filter) != "undefined" && filter.length > 0) {
@@ -72,7 +90,7 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
             headers: { "Accept": "application/json; odata=verbose" }
         });
         var deff = $q.defer();
-        promise.then(function (data) { data.ExtraData = extraData; deff.resolve(data) }, function (data) { data.ExtraData = extraData; deff.reject(data) })
+        promise.then(function (data) { deff.resolve(data.data.d.results) }, function (data) { deff.reject(data) });
         return deff.promise;
     }
     this.GetListItemsByCAML = function GetListItemsByCAML(listName, webUrl, camlQuery, extraUrl, extraData) {
@@ -319,7 +337,7 @@ angularSP.service('AngularSPCSOM', ['$q', function ($q) {
             url = _spPageContextInfo.siteAbsoluteUrl;
         return url;
     }
-    this.CreateListItem = function CreateListItem(listName, item, webUrl) {
+    this.CreateListItem = function CreateListItem(listName, webUrl, item) {
         webUrl = self.SanitizeWebUrl(webUrl);
 
         var clientContext = new SP.ClientContext(webUrl);
@@ -332,15 +350,23 @@ angularSP.service('AngularSPCSOM', ['$q', function ($q) {
         }
         listItem.update();
 
-        clientContext.load(listItem);
+        var ctx = {
+            Context: clientContext,
+            List: list,
+            ListItem: listItem
+        };
+
+        clientContext.load(ctx.ListItem);
         var deff = $q.defer();
         clientContext.executeQueryAsync(
-            function () {
-                deff.resolve(listItem);
-            },
-            function (sender, args) {
+            Function.createDelegate(ctx,
+                function () {
+                    deff.resolve(ctx.ListItem.get_fieldValues());
+            }),
+            Function.createDelegate(ctx,
+                function (sender, args) {
                 deff.reject(args);
-            });
+            }));
         return deff.promise;
     }
 
@@ -361,6 +387,17 @@ angularSP.service('AngularSPCSOM', ['$q', function ($q) {
             });
 
         return deff.promise;
+    }
+    this.GetArrayFromJSOMEnumerator = function (enumObj)
+    {
+        var Enumerator = enumObj.getEnumerator();
+        var ret = [];
+
+        while (Enumerator.moveNext()) {
+            var obj = Enumerator.get_current();
+            ret.push(obj.get_fieldValues());
+        }
+        return ret;
     }
     this.GetListItems = function GetListItems(listName, webUrl, camlQuery) {
         webUrl = self.SanitizeWebUrl(webUrl);
@@ -383,8 +420,9 @@ angularSP.service('AngularSPCSOM', ['$q', function ($q) {
         clientContext.load(ctx.collListItem);
         clientContext.executeQueryAsync(
             Function.createDelegate(ctx,
-                function () { 
-                deff.resolve(ctx.collListItem);
+                function () {
+                    var ret = self.GetArrayFromJSOMEnumerator(ctx.collListItem);
+                deff.resolve(ret);
             }),
             Function.createDelegate(this,
                 function (sender, args) {
@@ -393,10 +431,10 @@ angularSP.service('AngularSPCSOM', ['$q', function ($q) {
         );
         return deff.promise;
     }
-    this.UpdateListItem = function UpdateListItem(itemId, listName, webUrl) {
+    this.UpdateListItem = function UpdateListItem(itemId, listName, webUrl, item) {
         webUrl = self.SanitizeWebUrl(webUrl);
 
-        var clientContext = new SP.ClientContext(siteUrl);
+        var clientContext = new SP.ClientContext(webUrl);
         var oList = clientContext.get_web().get_lists().getByTitle(listName);
 
         var listItem = oList.getItemById(itemId);
@@ -405,14 +443,22 @@ angularSP.service('AngularSPCSOM', ['$q', function ($q) {
         }
         listItem.update();
 
+        var ctx = {
+            Context: clientContext,
+            List: oList,
+            ListItem: listItem
+        };
+
         var deff = $q.defer();
         clientContext.executeQueryAsync(
-            function () {
-                deff.resolve(listItem);
-            },
-            function (sender, args) {
+            Function.createDelegate(ctx,
+                function () {
+                    deff.resolve(ctx.ListItem.get_fieldValues());
+            }),
+            Function.createDelegate(ctx,
+                function (sender, args) {
                 deff.reject(args);
-            }
+            })
         );
 
         return deff.promise;
@@ -420,9 +466,9 @@ angularSP.service('AngularSPCSOM', ['$q', function ($q) {
     this.DeleteListItem = function DeleteListItem(itemId, listName, webUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
 
-        var clientContext = new SP.ClientContext(siteUrl);
+        var clientContext = new SP.ClientContext(webUrl);
         var list = clientContext.get_web().get_lists().getByTitle(listName);
-        this.oListItem = list.getItemById(itemId);
+        var oListItem = list.getItemById(itemId);
         oListItem.deleteObject();
 
         var deff = $q.defer();

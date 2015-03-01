@@ -4,20 +4,21 @@ SPKnight.TestApp.App.controller('ListOpsController', ['$scope', '$rootScope', '$
     function ($scope, $rootScope, $filter, $angularSPRest, $angularSPCSOM) {
         $scope.Items = [];
         $scope.Method = "REST";
+        $scope.NewItemTitle = "";
 
         $scope.GetListItems = function GetListItems()
         {
             if($scope.Method === "REST")
             {
-                $angularSPRest.GetListItems("TestList", "/TestAngularSP").then(function (res) {
-                    $scope.Items = res.data.d.results;
+                $angularSPRest.GetListItems("TestList", "/TestAngularSP").then(function (items) {
+                    $scope.Items = items;
                 });
             }
             else
             {
                 var res = $angularSPCSOM.GetListItems("TestList", "/TestAngularSP");
-                res.Promise.then(function () {
-                    debugger;
+                res.then(function (items) {
+                    $scope.Items = items;
                 });
             }
         }
@@ -29,7 +30,7 @@ SPKnight.TestApp.App.controller('ListOpsController', ['$scope', '$rootScope', '$
                 });
             }
             else {
-                $angularSPCSOM.GetListItems("TestList", "/TestAngularSP").then(function (res) {
+                $angularSPCSOM.UpdateListItem(item.ID, "TestList", "/TestAngularSP", { Title: item.Title }).then(function (res) {
                     debugger;
                 });
             }
@@ -43,9 +44,30 @@ SPKnight.TestApp.App.controller('ListOpsController', ['$scope', '$rootScope', '$
                 });
             }
             else {
-                $angularSPCSOM.GetListItems("TestList", "/TestAngularSP").then(function (res) {
-                    debugger;
+                $angularSPCSOM.DeleteListItem(item.ID, "TestList", "/TestAngularSP").then(function (res) {
+                    var index = $scope.Items.indexOf(item);
+                    $scope.Items.splice(index, 1);
                 });
             }
         }
+        $scope.CreateItem = function CreateItem()
+        {
+            var item = {
+                Title: $scope.NewItemTitle
+            };
+            if ($scope.Method === "REST") {
+                $angularSPRest.CreateListItem("TestList", "/TestAngularSP", item).then(function (res) {
+                    $scope.NewItemTitle = "";
+                    $scope.Items.push(res);
+                });
+            }
+            else {
+                $angularSPCSOM.CreateListItem("TestList", "/TestAngularSP", item).then(function (res) {
+                    debugger;
+                    $scope.NewItemTitle = "";
+                    $scope.Items.push(res);
+                });
+            }
+        }
+        $angularSPRest.GetUpdatedDigest("/TestAngularSP");
     }]);
