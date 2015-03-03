@@ -43,6 +43,9 @@
     <UseVSHostingProcess>false</UseVSHostingProcess>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="Scripts\AngularSP.min.js">
+      <DependentUpon>AngularSP.js</DependentUpon>
+    </Content>
     <Content Include="Scripts\Controllers\SearchOpsController.js" />
     <Content Include="TestList\Elements.xml" />
     <Content Include="TestList\Schema.xml" />
@@ -55,6 +58,9 @@
     <Content Include="Content\ListOps.html" />
     <Content Include="Pages\Elements.xml" />
     <Content Include="Pages\Default.aspx" />
+    <None Include="Scripts\AngularSP.min.js.map">
+      <DependentUpon>AngularSP.min.js</DependentUpon>
+    </None>
     <None Include="TestList\SharePointProjectItem.spdata">
       <SharePointProjectItemId>{529b9a08-4e09-46a8-b0f2-cc4ee56ad9c8}</SharePointProjectItemId>
     </None>

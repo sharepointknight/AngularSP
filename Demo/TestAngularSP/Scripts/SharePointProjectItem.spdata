@@ -13,5 +13,7 @@
     <ProjectItemFile Source="angular-route-min.js.map" Target="Scripts\" Type="ElementFile" />
     <ProjectItemFile Source="Controllers\ListOpsController.js" Target="Scripts\Controllers\" Type="ElementFile" />
     <ProjectItemFile Source="Controllers\SearchOpsController.js" Target="Scripts\Controllers\" Type="ElementFile" />
+    <ProjectItemFile Source="AngularSP.min.js" Target="Scripts\" Type="ElementFile" />
+    <ProjectItemFile Source="AngularSP.min.js.map" Target="Scripts\" Type="ElementFile" />
   </Files>
 </ProjectItem>

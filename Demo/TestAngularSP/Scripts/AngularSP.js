@@ -1,26 +1,37 @@
 ﻿/////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
-///         AngularSP version 0.0.0.1
-///         Created by Ryan Schouten, @shrpntknight, https://github.com/sharepointknight/AngularSP
+///         AngularSP version 0.0.0.2
+///         Created by Ryan Schouten, @shrpntknight, https://angularsp.codeplex.com
 ///
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 var angularSP = angular.module('AngularSP', []);
-angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
+angularSP.service('AngularSPREST', ['$http', '$q', '$timeout', function ($http, $q, $timeout) {
     var self = this;
+    console.log("AngularSPREST Initializing");
     this.SetDigestExpiration = function SetDigestExpiration(ticks)
     {
 
     }
-    this.DigestExpires = null;
+    var digestToken = null;
+    var digestPromise = null;
     this.GetUpdatedDigest = function GetUpdateDigest(webUrl)
     {
         webUrl = self.SanitizeWebUrl(webUrl);
-        var promise = $http({
+
+        var __REQUESTDIGEST;
+        var contextInfoPromise = $http({
             url: webUrl + "/_api/contextinfo",
             method: "POST",
             headers: {
-                "Accept": "application/json;odata=verbose"
+                "Accept": "application/json; odata=verbose"
             }
+        }).then(function (data) {
+            digestToken = data.data.d.GetContextWebInformation.FormDigestValue;
+            debugger;
+            var timeoutSeconds = data.data.d.GetContextWebInformation.FormDigestTimeoutSeconds;
+            digestPromise = $timeout(function () { debugger; self.GetUpdatedDigest(webUrl); }, (timeoutSeconds - 1) * 1000);
+        }, function (sender, args) {
+            console.log("Error getting new digest");
         });
     }
     this.GetItemTypeForListName = function GetItemTypeForListName(name) {
@@ -36,6 +47,7 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
             url = _spPageContextInfo.siteAbsoluteUrl;
         return url;
     }
+    this.GetUpdatedDigest("/TestAngularSP");
     this.CreateListItem = function CreateListItem(listName, webUrl, item) {
         var itemType = self.GetItemTypeForListName(listName);
         //item["__metadata"] = { "type": itemType };
@@ -69,20 +81,27 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
 
         return promise;
     }
-    this.GetListItems = function GetListItems(listName, webUrl, filter, sort) {
+    this.GetListItems = function GetListItems(listName, webUrl, options) {
         webUrl = self.SanitizeWebUrl(webUrl);
+
+        if (typeof (options) === "string")
+            options = { $filter: options };
+
         var url = webUrl + "/_api/web/lists/getbytitle('" + listName + "')/items";
-        if (typeof (filter) != "undefined" && filter.length > 0) {
-            url = url + "?$filter=" + filter;
+        if (options.length > 0)
+            url += "?";
+        for (var property in options) {
+            if (options.hasOwnProperty(property)) {
+                if (property === "LoadPage") {
+                    url = options[property];
+                    break;
+                }
+                url += property + "=" + options[property] + "&";
+            }
         }
-        if (typeof (sort) != "undefined" && sort.length > 0) {
-            if (url.indexOf("?") > 0) {
-                url = url + "&";
-            }
-            else {
-                url = url + "?";
-            }
-            url = url + "$orderby=" + sort;
+        if (url.lastIndexOf("&") == url.length - 1)
+        {
+            url = url.substring(0, url.length - 1);
         }
         var promise = $http({
             url: url,
@@ -93,11 +112,18 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
         promise.then(function (data) { deff.resolve(data.data.d.results) }, function (data) { deff.reject(data) });
         return deff.promise;
     }
-    this.GetListItemsByCAML = function GetListItemsByCAML(listName, webUrl, camlQuery, extraUrl, extraData) {
+    this.GetListItemsByCAML = function GetListItemsByCAML(listName, webUrl, camlQuery, options) {
         webUrl = self.SanitizeWebUrl(webUrl);
         var url = webUrl + "/_api/web/lists/getbytitle('" + listName + "')/GetItems(query=@v1)?@v1={\"ViewXml\":\"" + camlQuery + "\"}";
-        if (extraUrl.length > 0) {
-            url += "&" + extraUrl;
+        if (options.length > 0)
+            url += "&";
+        for (var property in options) {
+            if (options.hasOwnProperty(property)) {
+                url += property + "=" + options[property] + "&";
+            }
+        }
+        if (url.lastIndexOf("&") == url.length - 1) {
+            url = url.substring(0, url.length - 1);
         }
         var promise = $http({
             url: url,
@@ -325,6 +351,24 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
         });
         return deff.promise;
     }
+
+    this.AddFileToLibrary = function AddFileToLibrary(listName, webUrl, fileName, file) {
+        webUrl = self.SanitizeWebUrl(webUrl);
+
+        var url = webUrl + "/_api/web/lists/getByTitle(@TargetLibrary)/RootFolder/Files/add(url=@TargetFileName,overwrite='true')?@TargetLibrary='" + listName + "'&@TargetFileName='" + fileName + "'";
+
+        var promise = $http({
+            url: url,
+            method: "POST",
+            data: file,
+            headers: {
+                "Accept": "application/json; odata=verbose",
+                "X-RequestDigest": $("#__REQUESTDIGEST").val()
+            }
+        });
+        return promise;
+    }
+
 }]);
 angularSP.service('AngularSPCSOM', ['$q', function ($q) {
     var self = this;

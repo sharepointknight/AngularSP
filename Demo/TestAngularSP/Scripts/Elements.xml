@@ -12,5 +12,7 @@
     <File Path="Scripts\angular-route-min.js.map" Url="Scripts/angular-route-min.js.map" ReplaceContent="TRUE" />
     <File Path="Scripts\Controllers\ListOpsController.js" Url="Scripts/Controllers/ListOpsController.js" ReplaceContent="TRUE" />
     <File Path="Scripts\Controllers\SearchOpsController.js" Url="Scripts/Controllers/SearchOpsController.js" ReplaceContent="TRUE" />
+    <File Path="Scripts\AngularSP.min.js" Url="Scripts/AngularSP.min.js" ReplaceContent="TRUE" />
+    <File Path="Scripts\AngularSP.min.js.map" Url="Scripts/AngularSP.min.js.map" ReplaceContent="TRUE" />
   </Module>
 </Elements>

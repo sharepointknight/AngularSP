@@ -69,5 +69,4 @@ SPKnight.TestApp.App.controller('ListOpsController', ['$scope', '$rootScope', '$
                 });
             }
         }
-        $angularSPRest.GetUpdatedDigest("/TestAngularSP");
     }]);
