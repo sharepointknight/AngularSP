@@ -1,38 +1,52 @@
 ﻿/////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
-///         AngularSP version 0.0.0.2
+///         AngularSP version 0.0.0.3
 ///         Created by Ryan Schouten, @shrpntknight, https://angularsp.codeplex.com
 ///
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 var angularSP = angular.module('AngularSP', []);
 angularSP.service('AngularSPREST', ['$http', '$q', '$timeout', function ($http, $q, $timeout) {
+    //Private Variables
     var self = this;
-    console.log("AngularSPREST Initializing");
-    this.SetDigestExpiration = function SetDigestExpiration(ticks)
-    {
+    var cachedDigests = [];
 
-    }
-    var digestToken = null;
-    var digestPromise = null;
+    //Methods
     this.GetUpdatedDigest = function GetUpdateDigest(webUrl)
     {
+        var deff = $q.defer();
         webUrl = self.SanitizeWebUrl(webUrl);
 
-        var __REQUESTDIGEST;
-        var contextInfoPromise = $http({
-            url: webUrl + "/_api/contextinfo",
-            method: "POST",
-            headers: {
-                "Accept": "application/json; odata=verbose"
-            }
-        }).then(function (data) {
-            digestToken = data.data.d.GetContextWebInformation.FormDigestValue;
-            debugger;
-            var timeoutSeconds = data.data.d.GetContextWebInformation.FormDigestTimeoutSeconds;
-            digestPromise = $timeout(function () { debugger; self.GetUpdatedDigest(webUrl); }, (timeoutSeconds - 1) * 1000);
-        }, function (sender, args) {
-            console.log("Error getting new digest");
-        });
+        var needToAdd = false;
+        var digest = self.Support.GetDigestFromCache(webUrl);
+        needToAdd = digest === null;
+        if (digest != null && digest.digestData != null && self.Support.EndsWith(digest.digestData.WebFullUrl, webUrl) && digest.digestExpires.getTime() > new Date().getTime()) {
+            deff.resolve(digest.digestData);
+        }
+        else {
+            var __REQUESTDIGEST;
+            var contextInfoPromise = $http({
+                url: webUrl + "/_api/contextinfo",
+                method: "POST",
+                headers: {
+                    "Accept": "application/json; odata=verbose"
+                }
+            }).then(function (data) {
+                if (needToAdd)
+                {
+                    digest = { digestData: null, digestExpires: null };
+                    cachedDigests.push(digest);
+                }
+                digest.digestData = self.Support.GetJustTheData(data).GetContextWebInformation;
+                var timeout = digest.digestData.FormDigestTimeoutSeconds;
+                var now = new Date();
+                digest.digestExpires = new Date(now.getTime() + timeout * 1000);
+                deff.resolve(digest.digestData);
+            }, function (sender, args) {
+                console.log("Error getting new digest");
+                deff.reject(args);
+            });
+        }
+        return deff.promise;
     }
     this.GetItemTypeForListName = function GetItemTypeForListName(name) {
         return "SP.Data." + name.charAt(0).toUpperCase() + name.split(" ").join("").slice(1) + "ListItem";
@@ -42,28 +56,64 @@ angularSP.service('AngularSPREST', ['$http', '$q', '$timeout', function ($http, 
 
         }
     }
+    this.Support = {
+        GetJustTheData: function GetJustTheData(value)
+        {
+            var tmp = value.data.d;
+            if (typeof (tmp.results) !== "undefined")
+                tmp = tmp.results;
+            return tmp;
+        },
+        EndsWith: function endsWith(str, suffix) {
+            return str.indexOf(suffix, str.length - suffix.length) !== -1;
+        },
+        GetCurrentDigestValue: function GetCurrentDigestValue(webUrl)
+        {
+            webUrl = self.SanitizeWebUrl(webUrl);
+            var digest = self.Support.GetDigestFromCache(webUrl);
+            if (digest != null && digest.digestData != null && self.Support.EndsWith(digest.digestData.WebFullUrl, webUrl) && digest.digestExpires.getTime() > new Date().getTime())
+            {
+                return digest.digestData.FormDigestValue;
+            }
+            else
+            {
+                return $("#__REQUESTDIGEST").val();
+            }
+        },
+        GetDigestFromCache: function GetDigestFromCache(webUrl)
+        {
+            for(var i=0;i<cachedDigests.length;i++)
+            {
+                if (self.Support.EndsWith(cachedDigests[i].digestData.WebFullUrl, webUrl))
+                    return cachedDigests[i];
+            }
+            return null;
+        }
+    }
     this.SanitizeWebUrl = function SanitizeWebUrl(url) {
         if (typeof (url) == "undefined" || url == null || url == "")
             url = _spPageContextInfo.siteAbsoluteUrl;
         return url;
     }
-    this.GetUpdatedDigest("/TestAngularSP");
     this.CreateListItem = function CreateListItem(listName, webUrl, item) {
         var itemType = self.GetItemTypeForListName(listName);
         //item["__metadata"] = { "type": itemType };
         webUrl = self.SanitizeWebUrl(webUrl);
 
         var deff = $q.defer();
-        var promise = $http({
-            url: webUrl + "/_api/web/lists/getbytitle('" + listName + "')/items",
-            method: "POST",
-            data: item,
-            headers: {
-                "Accept": "application/json;odata=verbose",
-                "X-RequestDigest": $("#__REQUESTDIGEST").val()
-            }
+        $q.when(self.GetUpdatedDigest(webUrl)).then(function ()
+        {
+            var promise = $http({
+                url: webUrl + "/_api/web/lists/getbytitle('" + listName + "')/items",
+                method: "POST",
+                data: item,
+                headers: {
+                    "Accept": "application/json;odata=verbose",
+                    "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
+                }
+            });
+            promise.then(function (data) { deff.resolve(self.Support.GetJustTheData(data)) }, function (data) { deff.reject(data) });
         });
-        promise.then(function (data) { deff.resolve(data.data.d) }, function (data) { deff.reject(data) });
         return deff.promise;
     }
 
@@ -73,11 +123,16 @@ angularSP.service('AngularSPREST', ['$http', '$q', '$timeout', function ($http, 
         if (typeof (extraParams) != "undefined" && extraParams != "") {
             url += "?" + extraParams;
         }
+
+        var deff = $q.defer();
         var promise = $http({
             url: url,
             method: "GET",
             headers: { "Accept": "application/json; odata=verbose" }
         });
+
+        promise.then(function (data) { deff.resolve(self.Support.GetJustTheData(data)) }, function (data) { deff.reject(data) });
+        return deff.promise;
 
         return promise;
     }
@@ -88,20 +143,23 @@ angularSP.service('AngularSPREST', ['$http', '$q', '$timeout', function ($http, 
             options = { $filter: options };
 
         var url = webUrl + "/_api/web/lists/getbytitle('" + listName + "')/items";
-        if (options.length > 0)
-            url += "?";
-        for (var property in options) {
-            if (options.hasOwnProperty(property)) {
-                if (property === "LoadPage") {
-                    url = options[property];
-                    break;
+        if (typeof (options) !== "undefined") {
+            var odata = "";
+            for (var property in options) {
+                if (options.hasOwnProperty(property)) {
+                    if (property === "LoadPage") {
+                        url = options[property];
+                        break;
+                    }
+                    if (odata.length == 0)
+                        odata = "?";
+                    odata += property + "=" + options[property] + "&";
                 }
-                url += property + "=" + options[property] + "&";
             }
-        }
-        if (url.lastIndexOf("&") == url.length - 1)
-        {
-            url = url.substring(0, url.length - 1);
+            if (odata.lastIndexOf("&") == odata.length - 1) {
+                odata = odata.substring(0, odata.length - 1);
+            }
+            url += odata;
         }
         var promise = $http({
             url: url,
@@ -109,78 +167,84 @@ angularSP.service('AngularSPREST', ['$http', '$q', '$timeout', function ($http, 
             headers: { "Accept": "application/json; odata=verbose" }
         });
         var deff = $q.defer();
-        promise.then(function (data) { deff.resolve(data.data.d.results) }, function (data) { deff.reject(data) });
+        promise.then(function (data) { deff.resolve(self.Support.GetJustTheData(data)) }, function (data) { deff.reject(data) });
         return deff.promise;
     }
     this.GetListItemsByCAML = function GetListItemsByCAML(listName, webUrl, camlQuery, options) {
         webUrl = self.SanitizeWebUrl(webUrl);
         var url = webUrl + "/_api/web/lists/getbytitle('" + listName + "')/GetItems(query=@v1)?@v1={\"ViewXml\":\"" + camlQuery + "\"}";
-        if (options.length > 0)
-            url += "&";
-        for (var property in options) {
-            if (options.hasOwnProperty(property)) {
-                url += property + "=" + options[property] + "&";
+        if (typeof (options) !== "undefined") {
+            var odata = "";
+            for (var property in options) {
+                if (options.hasOwnProperty(property)) {
+                    if (property === "LoadPage") {
+                        url = options[property];
+                        break;
+                    }
+                    if (odata.length == 0)
+                        odata = "?";
+                    odata += property + "=" + options[property] + "&";
+                }
             }
-        }
-        if (url.lastIndexOf("&") == url.length - 1) {
-            url = url.substring(0, url.length - 1);
+            if (odata.lastIndexOf("&") == odata.length - 1) {
+                odata = odata.substring(0, odata.length - 1);
+            }
+            url += odata;
         }
         var promise = $http({
             url: url,
             method: "POST",
             headers: {
                 "Accept": "application/json;odata=verbose",
-                "X-RequestDigest": $("#__REQUESTDIGEST").val()
+                "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
             }
         });
         var deff = $q.defer();
-        promise.then(function (data) { data.ExtraData = extraData; deff.resolve(data) }, function (data) { data.ExtraData = extraData; deff.reject(data) })
+        promise.then(function (data) { deff.resolve(self.Support.GetJustTheData(data)) }, function (data) { deff.reject(data) })
         return deff.promise;
     }
     this.UpdateListItem = function UpdateListItem(itemId, listName, webUrl, updateData) {
         webUrl = self.SanitizeWebUrl(webUrl);
         var itemType = self.GetItemTypeForListName(listName);
 
-        //var item = {
-        //    "__metadata": { "type": itemType },
-        //    "Title": title
-        //};
-
-        //updateData.__metadata = { "type": itemType };
         var deff = $q.defer();
-        self.GetItemById(itemId, listName, webUrl).then(function (data) {
-            //updateData.__metadata = { "type": data.data.d.__metadata.type };
-            var promise = $http({
-                url: data.data.d.__metadata.uri,
-                method: "POST",
-                contentType: "application/json;odata=verbose",
-                data: JSON.stringify(updateData),
-                headers: {
-                    "Accept": "application/json;odata=verbose",
-                    "X-RequestDigest": $("#__REQUESTDIGEST").val(),
-                    "X-HTTP-Method": "MERGE",
-                    "If-Match": data.data.d.__metadata.etag
-                }
+        $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
+            self.GetItemById(itemId, listName, webUrl).then(function (data) {
+                //updateData.__metadata = { "type": data.data.d.__metadata.type };
+                var promise = $http({
+                    url: data.__metadata.uri,
+                    method: "POST",
+                    contentType: "application/json;odata=verbose",
+                    data: JSON.stringify(updateData),
+                    headers: {
+                        "Accept": "application/json;odata=verbose",
+                        "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl),
+                        "X-HTTP-Method": "MERGE",
+                        "If-Match": data.__metadata.etag
+                    }
+                });
+                promise.then(function (data1) { deff.resolve(data1) }, function (data1) { deff.reject(data1) });
             });
-            promise.then(function (data1) { deff.resolve(data1) }, function (data1) { deff.reject(data1) });
         });
         return deff.promise;
     }
     this.DeleteListItem = function DeleteListItem(itemId, listName, webUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
         var deff = $q.defer();
-        self.GetItemById(itemId, listName, webUrl).then(function (data) {
-            var promise = $http({
-                url: data.data.d.__metadata.uri,
-                method: "DELETE",
-                headers: {
-                    "Accept": "application/json;odata=verbose",
-                    "X-Http-Method": "DELETE",
-                    "X-RequestDigest": $("#__REQUESTDIGEST").val(),
-                    "If-Match": data.data.d.__metadata.etag
-                }
+        $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
+            self.GetItemById(itemId, listName, webUrl).then(function (data) {
+                var promise = $http({
+                    url: data.__metadata.uri,
+                    method: "DELETE",
+                    headers: {
+                        "Accept": "application/json;odata=verbose",
+                        "X-Http-Method": "DELETE",
+                        "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl),
+                        "If-Match": data.__metadata.etag
+                    }
+                });
+                promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
             });
-            promise.then(function (data1) { deff.resolve(data1) }, function (data1) { deff.reject(data1) });
         });
         return deff.promise;
     }
@@ -190,53 +254,62 @@ angularSP.service('AngularSPREST', ['$http', '$q', '$timeout', function ($http, 
         var url = webUrl + "/_api/web/sitegroups?$filter=(Title%20eq%20%27" + groupName + "%27)";
         if (includeMembers)
             url = url + "&$expand=Users";
+        var deff = $q.defer();
         var promise = $http({
             url: url,
             method: "GET",
             headers: { "Accept": "application/json; odata=verbose" }
         });
-
-        return promise;
+        promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
+        return deff.promise;
     }
     this.GetSiteUsers = function GetSiteUsers(webUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
 
         var url = webUrl + "/_api/web/SiteUsers";
+        var deff = $q.defer();
         var promise = $http({
             url: url,
             method: "GET",
             headers: { "Accept": "application/json; odata=verbose" }
         });
 
-        return promise;
+        promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
+        return deff.promise;
     }
     this.GetUserById = function GetUserById(userId, webUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
         var url = webUrl + "/_api/Web/GetUserById(" + userId + ")";
+        var deff = $q.defer();
         var promise = $http({
             url: url,
             method: "GET",
             headers: { "Accept": "application/json; odata=verbose" }
         });
-        return promise;
+        promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
+        return deff.promise;
 
     }
     this.AddUsertoGroup = function AddUsertoGroup(groupId, loginName, webUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
-        var item = { LoginName: loginName };
-        item["__metadata"] = { "type": "SP.User" };
-        webUrl = self.SanitizeWebUrl(webUrl);
-        var promise = $http({
-            url: webUrl + "/_api/web/sitegroups(" + groupId + ")/users",
-            type: "POST",
-            contentType: "application/json;odata=verbose",
-            data: JSON.stringify(item),
-            headers: {
-                "Accept": "application/json;odata=verbose",
-                "X-RequestDigest": $("#__REQUESTDIGEST").val()
-            }
+        var deff = $q.defer();
+        $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
+            var item = { LoginName: loginName };
+            item["__metadata"] = { "type": "SP.User" };
+            webUrl = self.SanitizeWebUrl(webUrl);
+            var promise = $http({
+                url: webUrl + "/_api/web/sitegroups(" + groupId + ")/users",
+                type: "POST",
+                contentType: "application/json;odata=verbose",
+                data: JSON.stringify(item),
+                headers: {
+                    "Accept": "application/json;odata=verbose",
+                    "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
+                }
+            });
+            promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
         });
-        return promise;
+        return deff.promise;
     }
     this.GetUserId = function getUserId(loginName) {
         var deffered = $q.defer();
@@ -244,8 +317,8 @@ angularSP.service('AngularSPREST', ['$http', '$q', '$timeout', function ($http, 
         var user = context.get_web().ensureUser(loginName);
         context.load(user);
         context.executeQueryAsync(
-             Function.createDelegate(null, function () { deffered.resolve(user); }),
-             Function.createDelegate(null, function () { deffered.reject(user, args); })
+             Function.createDelegate(user, function () { deffered.resolve(user); }),
+             Function.createDelegate(user, function () { deffered.reject(user, args); })
         );
         return deffered.promise;
     }
@@ -268,37 +341,20 @@ angularSP.service('AngularSPREST', ['$http', '$q', '$timeout', function ($http, 
             }
         };
         var deffered = $q.defer();
-        // Because we don't have the hidden __REQUESTDIGEST variable, we need to ask the server for the FormDigestValue
-        var __REQUESTDIGEST;
-        var rootUrl = location.protocol + "//" + location.host;
+        $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
 
-        var contextInfoPromise = $http({
-            url: webUrl + "/_api/contextinfo",
-            method: "POST",
-            headers: {
-                "Accept": "application/json; odata=verbose"
-            },
-            success: function (data) {
-                __REQUESTDIGEST = data.d.GetContextWebInformation.FormDigestValue;
-            },
-            error: function (data, errorCode, errorMessage) {
-                alert(errorMessage);
-            }
-        });
-
-        // Once we have the form digest value, we can create the subsite
-        $q.when(contextInfoPromise).done(function () {
+            // Once we have the form digest value, we can create the subsite
             $http({
                 url: webUrl + "/_api/web/webinfos/add",
                 type: "POST",
                 headers: {
                     "accept": "application/json;odata=verbose",
                     "content-type": "application/json;odata=verbose",
-                    "X-RequestDigest": __REQUESTDIGEST
+                    "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
                 },
                 data: JSON.stringify(createData)
             }).then(function (data) {
-                deffered.resolve(data);
+                deffered.resolve(self.Support.GetJustTheData(data));
             });
         });
         return deffered.promise;
@@ -307,46 +363,34 @@ angularSP.service('AngularSPREST', ['$http', '$q', '$timeout', function ($http, 
         webUrl = self.SanitizeWebUrl(webUrl);
         var url = webUrl + "/_api/web";
 
+        var deff = $q.defer();
         var promise = $http({
             url: url,
             method: "GET",
             headers: { "Accept": "application/json; odata=verbose" }
         });
-        return promise;
+        promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
+        return deff.promise;
     }
     this.UpdateWebData = function UpdateWebData(webUrl, updateData) {
         webUrl = self.SanitizeWebUrl(webUrl);
 
-        var __REQUESTDIGEST;
-        var contextInfoPromise = $http({
-            url: webUrl + "/_api/contextinfo",
-            method: "POST",
-            headers: {
-                "Accept": "application/json; odata=verbose"
-            },
-            success: function (data) {
-                __REQUESTDIGEST = data.d.GetContextWebInformation.FormDigestValue;
-            },
-            error: function (data, errorCode, errorMessage) {
-                alert(errorMessage);
-            }
-        });
         var deff = $q.defer();
-        updateData.__metadata = { "type": "SP.Web" };
-        $q.when(contextInfoPromise).done(function () {
+        $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
+            updateData.__metadata = { "type": "SP.Web" };
             self.GetWebData(webUrl).then(function (data) {
                 $http({
-                    url: data.d.__metadata.uri,
+                    url: data.__metadata.uri,
                     type: "POST",
                     contentType: "application/json;odata=verbose",
                     data: JSON.stringify(updateData),
                     headers: {
                         "Accept": "application/json;odata=verbose",
-                        "X-RequestDigest": $("#__REQUESTDIGEST").val(),
+                        "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl),
                         "X-HTTP-Method": "MERGE",
-                        "If-Match": data.d.__metadata.etag
+                        "If-Match": data.__metadata.etag
                     }
-                }).then(function (data1) { deff.resolve(data1) }, function (data1) { deff.reject(data1) });
+                }).then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
             });
         });
         return deff.promise;
@@ -357,16 +401,20 @@ angularSP.service('AngularSPREST', ['$http', '$q', '$timeout', function ($http, 
 
         var url = webUrl + "/_api/web/lists/getByTitle(@TargetLibrary)/RootFolder/Files/add(url=@TargetFileName,overwrite='true')?@TargetLibrary='" + listName + "'&@TargetFileName='" + fileName + "'";
 
-        var promise = $http({
-            url: url,
-            method: "POST",
-            data: file,
-            headers: {
-                "Accept": "application/json; odata=verbose",
-                "X-RequestDigest": $("#__REQUESTDIGEST").val()
-            }
+        var deff = $q.defer();
+        $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
+            var promise = $http({
+                url: url,
+                method: "POST",
+                data: file,
+                headers: {
+                    "Accept": "application/json; odata=verbose",
+                    "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
+                }
+            });
+            promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
         });
-        return promise;
+        return deff.promise;
     }
 
 }]);

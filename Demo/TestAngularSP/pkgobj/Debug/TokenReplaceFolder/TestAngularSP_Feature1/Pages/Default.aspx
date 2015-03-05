@@ -37,6 +37,7 @@
 
     <div ng-app="TestApp">
         <a href="#/ListOps" class="DemoLink">List Operations</a>
+        <a href="#/Search" class="DemoLink">Search Operations</a>
         <div ng-view></div>
     </div>
 

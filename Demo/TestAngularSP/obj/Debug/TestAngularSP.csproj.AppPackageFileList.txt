@@ -1,1 +1,1 @@
-C:\Users\Ryan\Documents\My Tresors\Projects\TestAngularSP\bin\Debug\app.publish\1.0.0.0\TestAngularSP.app
+C:\Users\Ryan\Documents\My Tresors\Projects\AngularSP\Demo\TestAngularSP\bin\Debug\app.publish\1.0.0.0\TestAngularSP.app
