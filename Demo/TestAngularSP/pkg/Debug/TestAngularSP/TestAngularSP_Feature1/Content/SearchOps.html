@@ -1,3 +1,17 @@
 ﻿<div ng-controller="SearchOpsController">
     <h1>Search</h1>
+
+    <br />
+    <select ng-model="Method">
+        <option value="REST">REST</option>
+        <option value="CSOM">CSOM</option>
+    </select><br /><br />
+
+    <input type="text" ng-model="QueryText" /><input type="button" value="Search" ng-click="ExecuteSearch()" />
+
+    <b>Elapsed Time: </b>{{Results.ElapsedTime}}<br/>
+
+    <ul>
+        <li ng-repeat="res in Results.PrimaryQueryResult.RelevantResults.Results">{{res.Title}}</li>
+    </ul>
 </div>
