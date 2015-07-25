@@ -49,6 +49,7 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
         return deff.promise;
     }
     this.GetItemTypeForListName = function GetItemTypeForListName(name) {
+        name = name.replace(/_/g, '_x005f_').replace(/-/g,'');
         return "SP.Data." + name.charAt(0).toUpperCase() + name.split(" ").join("").slice(1) + "ListItem";
     }
     this.GetUrlPrefix = function GetUrlPrefix() {
@@ -326,7 +327,7 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
             webUrl = self.SanitizeWebUrl(webUrl);
             var promise = $http({
                 url: webUrl + "_api/web/sitegroups(" + groupId + ")/users",
-                type: "POST",
+                method: "POST",
                 data: JSON.stringify(item),
                 headers: {
                     "Accept": "application/json;odata=verbose",
@@ -433,10 +434,10 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
             var promise = $http({
                 url: url,
                 method: "POST",
+                transformRequest: [],
                 data: file,
                 headers: {
                     "Accept": "application/json; odata=verbose",
-                    'Content-Type': 'application/json;odata=verbose',
                     "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
                 }
             });
@@ -444,6 +445,7 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
         });
         return deff.promise;
     }
+
 
     this.Search = {
         Get: function Get(webUrl, options)
@@ -531,6 +533,70 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
                 ret.Results.push(retObj);
             }
             return ret;
+        }
+    };
+    this.Profile = {
+        GetCurrentUser: function GetCurrentUser(webUrl, options)
+        {
+            webUrl = self.SanitizeWebUrl(webUrl);
+            var url = webUrl + "_api/SP.UserProfiles.PeopleManager/GetMyProperties";
+            if (typeof (options) !== "undefined") {
+                var odata = "";
+                for (var property in options) {
+                    if (options.hasOwnProperty(property)) {
+                        if (property === "LoadPage") {
+                            url = options[property];
+                            break;
+                        }
+                        if (odata.length == 0)
+                            odata = "?";
+                        odata += property + "=" + options[property] + "&";
+                    }
+                }
+                if (odata.lastIndexOf("&") == odata.length - 1) {
+                    odata = odata.substring(0, odata.length - 1);
+                }
+                url += odata;
+            }
+            var promise = $http({
+                url: url,
+                method: "GET",
+                headers: { "Accept": "application/json; odata=verbose" }
+            });
+            var deff = $q.defer();
+            promise.then(function (data) { deff.resolve(self.Support.GetJustTheData(data)) }, function (data) { deff.reject(data) });
+            return deff.promise;
+        },
+        GetForUser: function GetForUser(webUrl, userName, options)
+        {
+            webUrl = self.SanitizeWebUrl(webUrl);
+            var url = webUrl + "_api/SP.UserProfiles.PeopleManager/GetPropertiesFor(accountName=@v)?@v='" + userName + "'";
+            if (typeof (options) !== "undefined") {
+                var odata = "";
+                for (var property in options) {
+                    if (options.hasOwnProperty(property)) {
+                        if (property === "LoadPage") {
+                            url = options[property];
+                            break;
+                        }
+                        if (odata.length == 0)
+                            odata = "?";
+                        odata += property + "=" + options[property] + "&";
+                    }
+                }
+                if (odata.lastIndexOf("&") == odata.length - 1) {
+                    odata = odata.substring(0, odata.length - 1);
+                }
+                url += odata;
+            }
+            var promise = $http({
+                url: url,
+                method: "GET",
+                headers: { "Accept": "application/json; odata=verbose" }
+            });
+            var deff = $q.defer();
+            promise.then(function (data) { deff.resolve(self.Support.GetJustTheData(data)) }, function (data) { deff.reject(data) });
+            return deff.promise;
         }
     };
 }]);
@@ -907,6 +973,172 @@ angularSP.service('AngularSPCSOM', ['$q', function ($q) {
             });
         });
         return deff;
+    }
+
+    this.Search = function Get(webUrl, options) {
+        webUrl = self.SanitizeWebUrl(webUrl);
+
+        var clientContext = new SP.ClientContext(webUrl);
+
+        var keywordQuery = new Microsoft.SharePoint.Client.Search.Query.KeywordQuery(clientContext);
+        if (typeof (options.querytext) !== "undefined") {
+            keywordQuery.set_queryText(options.querytext);
+        }
+        if (typeof (options.rowlimit) !== "undefined") {
+            keywordQuery.set_rowLimit(options.rowlimit);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.sortlist) !== "undefined") {
+            keywordQuery.set_sortList(options.sortlist);
+        }
+        if (typeof (options.querytemplate) !== "undefined") {
+            keywordQuery.set_queryTemplate(options.querytemplate);
+        }
+        if (typeof (options.enableinterleaving) !== "undefined") {
+            keywordQuery.set_enableInterleaving(options.enableinterleaving);
+        }
+        if (typeof (options.sourceid) !== "undefined") {
+            keywordQuery.set_sourceId(options.sourceid);
+        }
+        if (typeof (options.rankingmodelid) !== "undefined") {
+            keywordQuery.set_rankingModelId(options.rankingmodelid);
+        }
+        if (typeof (options.startrow) !== "undefined") {
+            keywordQuery.set_startRow(options.startrow);
+        }
+        if (typeof (options.rowsperpage) !== "undefined") {
+            keywordQuery.set_rowsPerPage(options.rowsperpage);
+        }
+        if (typeof (options.selectproperties) !== "undefined") {
+            var selectProperties = keywordQuery.get_selectProperties();
+            var properties = [].concat(options.selectproperties);
+            for (var i = 0; i < properties.length; i++)
+            {
+                selectProperties.add(properties[i]);
+            }
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }        
+        
+        culture
+        refiners
+        refinementfilters
+        hiddenconstraints
+        enablestemming
+        trimduplicatesincludeid
+        timeout
+        enablenicknames
+        enablephonetic
+        enablefql
+        hithighlightedproperties
+        bypassresulttypes
+        processbestbets
+        clienttype
+        personalizationdata
+        resultsurl
+        querytag
+        enablequeryrules
+        enablesorting
+        
+
+        var searchExecutor = new Microsoft.SharePoint.Client.Search.Query.SearchExecutor(clientContext);
+        var results = searchExecutor.executeQuery(keywordQuery);
+
+        var ctx = {
+            results: results
+        };
+        var deff = $q.defer();
+        clientContext.executeQueryAsync(
+            Function.createDelegate(ctx,
+                function () {
+                    var obj = {
+                        ElapsedTime: this.results.m_value.ElapsedTime,
+                        PrimaryQueryResult: {
+                            RefinementResults: [],
+                            RelevantResults: [],
+                            SpecialTermResults: []
+                        },
+                        SpellingSuggestion: this.results.m_value.SpellingSuggestion
+                    };
+                    var results = this.results;
+                    $.each(results.m_value.ResultTables, function (index, table) {
+                        if (table.TableType == "RelevantResults") {
+                            obj.PrimaryQueryResult.RelevantResults = results.m_value.ResultTables[index].ResultRows;
+                        }
+                        else if (table.TableType == "RefinementResults") {
+                            obj.PrimaryQueryResult.RefinementResults = results.m_value.ResultTables[index].ResultRows;
+                        }
+                        else if (table.TableType == "SpecialTermResults") {
+                            obj.PrimaryQueryResult.SpecialTermResults = results.m_value.ResultTables[index].ResultRows;
+                        }
+                    });
+
+                    deff.resolve(obj);
+                }),
+            Function.createDelegate(ctx,
+                function (sender, args) {
+                    deff.reject(args);
+                })
+        );
+
+        return deff.promise;
     }
 }]);
 
