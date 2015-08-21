@@ -4,3 +4,6 @@ C:\Users\Ryan\Documents\My Tresors\Projects\TestAngularSP\obj\Debug\TestAngularS
 C:\Users\Ryan\Documents\My Tresors\Projects\AngularSP\Demo\TestAngularSP\bin\Debug\TestAngularSP.pdb
 C:\Users\Ryan\Documents\My Tresors\Projects\AngularSP\Demo\TestAngularSP\obj\Debug\TestAngularSP.dll
 C:\Users\Ryan\Documents\My Tresors\Projects\AngularSP\Demo\TestAngularSP\obj\Debug\TestAngularSP.pdb
+C:\CrossDownloads\Projects\AngularSP\Demo\TestAngularSP\bin\Debug\TestAngularSP.pdb
+C:\CrossDownloads\Projects\AngularSP\Demo\TestAngularSP\obj\Debug\TestAngularSP.dll
+C:\CrossDownloads\Projects\AngularSP\Demo\TestAngularSP\obj\Debug\TestAngularSP.pdb
