@@ -839,7 +839,7 @@ angularSP.service('AngularSPCSOM', ['$q', function ($q) {
         });
         return promise;
     }
-    this.GetUserId = function getUserId(loginName, webUrl) {
+    this.GetUserId = function GetUserId(loginName, webUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
         var deff = $q.defer();
         var context = new SP.ClientContext(webUrl);
@@ -1077,7 +1077,7 @@ angularSP.service('AngularSPCSOM', ['$q', function ($q) {
             keywordQuery.set_trimDuplicates(options.trimduplicates);
         }        
         
-        culture
+        /*culture
         refiners
         refinementfilters
         hiddenconstraints
@@ -1095,7 +1095,7 @@ angularSP.service('AngularSPCSOM', ['$q', function ($q) {
         resultsurl
         querytag
         enablequeryrules
-        enablesorting
+        enablesorting*/
         
 
         var searchExecutor = new Microsoft.SharePoint.Client.Search.Query.SearchExecutor(clientContext);
