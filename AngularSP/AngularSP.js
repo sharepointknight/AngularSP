@@ -1,6 +1,6 @@
 ﻿/////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
-///         AngularSP version 0.0.0.4
+///         AngularSP version 0.0.0.6
 ///         Created by Ryan Schouten, @shrpntknight, https://angularsp.codeplex.com
 ///
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -11,13 +11,13 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
     var cachedDigests = [];
 
     //Methods
-    this.GetUpdatedDigest = function GetUpdateDigest(webUrl)
+    this.GetUpdatedDigest = function GetUpdateDigest(webUrl, hostUrl)
     {
         var deff = $q.defer();
         webUrl = self.SanitizeWebUrl(webUrl);
 
         var needToAdd = false;
-        var digest = self.Support.GetDigestFromCache(webUrl);
+        var digest = self.Support.GetDigestFromCache(webUrl, hostUrl);
         needToAdd = digest === null;
         if (digest != null && digest.digestData != null && digest.digestExpires.getTime() > new Date().getTime()) {
             deff.resolve(digest.digestData);
@@ -33,7 +33,7 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
             }).then(function (data) {
                 if (needToAdd)
                 {
-                    digest = { digestData: null, digestExpires: null, webUrl: webUrl };
+                    digest = { digestData: null, digestExpires: null, webUrl: webUrl + hostUrl };
                     cachedDigests.push(digest);
                 }
                 digest.digestData = self.Support.GetJustTheData(data).GetContextWebInformation;
@@ -49,6 +49,7 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
         return deff.promise;
     }
     this.GetItemTypeForListName = function GetItemTypeForListName(name) {
+        name = name.replace(/_/g, '_x005f_').replace(/-/g,'');
         return "SP.Data." + name.charAt(0).toUpperCase() + name.split(" ").join("").slice(1) + "ListItem";
     }
     this.GetUrlPrefix = function GetUrlPrefix() {
@@ -62,21 +63,21 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
             var tmp = value;
             if (typeof (tmp.data) !== "undefined") {
                 tmp = tmp.data;
-                if (typeof (tmp.d) !== "undefined") {
-                    tmp = tmp.d;
-                    if (typeof (tmp.results) !== "undefined")
-                        tmp = tmp.results;
-                }
             }
+            if (typeof (tmp.d) !== "undefined") {
+                tmp = tmp.d;
+            }
+            if (typeof (tmp.results) !== "undefined")
+                tmp = tmp.results;
             return tmp;
         },
         EndsWith: function endsWith(str, suffix) {
             return str.indexOf(suffix, str.length - suffix.length) !== -1;
         },
-        GetCurrentDigestValue: function GetCurrentDigestValue(webUrl)
+        GetCurrentDigestValue: function GetCurrentDigestValue(webUrl, hostUrl)
         {
             webUrl = self.SanitizeWebUrl(webUrl);
-            var digest = self.Support.GetDigestFromCache(webUrl);
+            var digest = self.Support.GetDigestFromCache(webUrl, hostUrl);
             if (digest != null && digest.digestData != null && digest.digestExpires.getTime() > new Date().getTime())
             {
                 return digest.digestData.FormDigestValue;
@@ -86,14 +87,68 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
                 return $("#__REQUESTDIGEST").val();
             }
         },
-        GetDigestFromCache: function GetDigestFromCache(webUrl)
+        GetDigestFromCache: function GetDigestFromCache(webUrl, hostUrl)
         {
             for(var i=0;i<cachedDigests.length;i++)
             {
-                if (cachedDigests[i].webUrl == webUrl)
+                if (cachedDigests[i].webUrl == webUrl + hostUrl)
                     return cachedDigests[i];
             }
             return null;
+        },
+        SendRequestViaExecutor: function SendRequestViaExecutor(url, appWebUrl, hostUrl, data, method, headers)
+        {
+            if (typeof (method) === "undefined" || method === null)
+                method = "GET";
+
+            var executor = new SP.RequestExecutor(appWebUrl);
+
+            var context = {
+                promise: $q.defer()
+            };
+            if (url.indexOf("?") > 0)
+                url += "&";
+            else
+                url += "?";
+
+            var requestObj = {
+                url:
+                    appWebUrl +
+                    "_api/SP.AppContextSite(@target)" + url + "@target='" +
+                    hostUrl + "'",
+                method: method,
+                headers: { "Accept": "application/json; odata=verbose" },
+                success: Function.createDelegate(context, function (data) {
+                    if (data.body === "")
+                        data.body = "{}";
+                    this.promise.resolve(JSON.parse(data.body));
+                }),
+                error: Function.createDelegate(context, function (data) {
+                    if (data.body === "")
+                        data.body = "{}";
+                    this.promise.reject(JSON.parse(data.body));
+                })
+            };
+            if (typeof (headers) !== "undefined")
+            {
+                for (var key in headers) {
+                    if (headers.hasOwnProperty(key)) {
+                        requestObj.headers[key] = headers[key];
+                    }
+                }
+            }
+            if (typeof (data) !== "undefined" && data != null) {
+                requestObj.body = JSON.stringify(data);
+                requestObj.headers["content-type"] = "application/json;odata=verbose";
+                
+                /*if(!create)
+                {
+                    requestObj.headers["If-Match"] = "*";
+                    requestObj.headers["X-HTTP-Method"] = "MERGE";
+                }*/
+            }
+            executor.executeAsync(requestObj);
+            return context.promise.promise;
         }
     }
     this.SanitizeWebUrl = function SanitizeWebUrl(url) {
@@ -103,55 +158,71 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
             url += "/";
         return url;
     }
-    this.CreateListItem = function CreateListItem(listName, webUrl, item) {
+    this.CreateListItem = function CreateListItem(listName, webUrl, item, hostUrl) {
         var itemType = self.GetItemTypeForListName(listName);
+        var url = "/web/lists/getbytitle('" + listName + "')/items";
         item["__metadata"] = { "type": itemType };
         webUrl = self.SanitizeWebUrl(webUrl);
 
         var deff = $q.defer();
         $q.when(self.GetUpdatedDigest(webUrl)).then(function ()
         {
-            var promise = $http({
-                url: webUrl + "_api/web/lists/getbytitle('" + listName + "')/items",
-                method: "POST",
-                data: item,
-                headers: {
+            var promise;
+            if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "")
+            {
+                promise = $http({
+                    url: webUrl + "_api" + url,
+                    method: "POST",
+                    data: item,
+                    headers: {
                     "Accept": "application/json;odata=verbose",
                     'Content-Type': 'application/json;odata=verbose',
                     "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
-                }
-            });
+                    }
+                });
+            }
+            else
+            {
+                promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, item, "POST");
+            }
             promise.then(function (data) { deff.resolve(self.Support.GetJustTheData(data)) }, function (data) { deff.reject(data) });
         });
         return deff.promise;
     }
 
-    this.GetItemById = function GetItemById(itemId, listName, webUrl, extraParams) {
+    this.GetItemById = function GetItemById(itemId, listName, webUrl, extraParams, hostUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
-        var url = webUrl + "_api/web/lists/getbytitle('" + listName + "')/items(" + itemId + ")";
+        var url = "/web/lists/getbytitle('" + listName + "')/items(" + itemId + ")";
         if (typeof (extraParams) != "undefined" && extraParams != "") {
             url += "?" + extraParams;
         }
 
         var deff = $q.defer();
-        var promise = $http({
-            url: url,
-            method: "GET",
-            headers: { "Accept": "application/json; odata=verbose" }
-        });
+        var promise;
+        if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+            url = webUrl + "_api" + url;
+            promise = $http({
+                url: url,
+                method: "GET",
+                headers: { "Accept": "application/json; odata=verbose" }
+            });
+        }
+        else {
+            promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, null, "GET");
+        }
 
         promise.then(function (data) { deff.resolve(self.Support.GetJustTheData(data)) }, function (data) { deff.reject(data) });
         return deff.promise;
 
         return promise;
     }
-    this.GetListItems = function GetListItems(listName, webUrl, options) {
+    this.GetListItems = function GetListItems(listName, webUrl, options, hostUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
 
         if (typeof (options) === "string")
             options = { $filter: options };
 
-        var url = webUrl + "_api/web/lists/getbytitle('" + listName + "')/items";
+        var url = "/web/lists/getbytitle('" + listName + "')/items";
         if (typeof (options) !== "undefined") {
             var odata = "";
             for (var property in options) {
@@ -170,18 +241,27 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
             }
             url += odata;
         }
-        var promise = $http({
-            url: url,
-            method: "GET",
-            headers: { "Accept": "application/json; odata=verbose" }
-        });
+        var promise;
+        if (typeof(hostUrl) === "undefined" || hostUrl === null)
+        {
+            url = webUrl + "_api" + url;
+            promise = $http({
+                url: url,
+                method: "GET",
+                headers: { "Accept": "application/json; odata=verbose" }
+            });
+        }
+        else
+        {
+            promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, null, "GET");
+        }
         var deff = $q.defer();
         promise.then(function (data) { deff.resolve(self.Support.GetJustTheData(data)) }, function (data) { deff.reject(data) });
         return deff.promise;
     }
-    this.GetListItemsByCAML = function GetListItemsByCAML(listName, webUrl, camlQuery, options) {
+    this.GetListItemsByCAML = function GetListItemsByCAML(listName, webUrl, camlQuery, options, hostUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
-        var url = webUrl + "_api/web/lists/getbytitle('" + listName + "')/GetItems(query=@v1)?@v1={\"ViewXml\":\"" + camlQuery + "\"}";
+        var url = "/web/lists/getbytitle('" + listName + "')/GetItems(query=@v1)?@v1={\"ViewXml\":\"" + camlQuery + "\"}";
         if (typeof (options) !== "undefined") {
             var odata = "";
             for (var property in options) {
@@ -200,82 +280,122 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
             }
             url += odata;
         }
-        var promise = $http({
-            url: url,
-            method: "POST",
-            headers: {
-                "Accept": "application/json;odata=verbose",
-                "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
-            }
-        });
+        var promise;
+        if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+            url = webUrl + "_api" + url;
+            promise = $http({
+                url: url,
+                method: "POST",
+                headers: {
+                    "Accept": "application/json;odata=verbose",
+                    "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
+                }
+            });
+        }
+        else {
+            promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, null, "POST");
+        }
         var deff = $q.defer();
         promise.then(function (data) { deff.resolve(self.Support.GetJustTheData(data)) }, function (data) { deff.reject(data) })
         return deff.promise;
     }
-    this.UpdateListItem = function UpdateListItem(itemId, listName, webUrl, updateData) {
+    this.UpdateListItem = function UpdateListItem(itemId, listName, webUrl, updateData, hostUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
         var itemType = self.GetItemTypeForListName(listName);
 
         var deff = $q.defer();
         $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
-            self.GetItemById(itemId, listName, webUrl).then(function (data) {
+            self.GetItemById(itemId, listName, webUrl, null, hostUrl).then(function (data) {
                 updateData.__metadata = { "type": data.__metadata.type };
-                var promise = $http({
-                    url: data.__metadata.uri,
-                    method: "POST",
-                    data: JSON.stringify(updateData),
-                    headers: {
-                        "Accept": "application/json;odata=verbose",
-                        'Content-Type': 'application/json;odata=verbose',
-                        "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl),
+                var promise;
+                if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+                    promise = $http({
+                        url: data.__metadata.uri,
+                        method: "POST",
+                        data: JSON.stringify(updateData),
+                        headers: {
+                            "Accept": "application/json;odata=verbose",
+                            'Content-Type': 'application/json;odata=verbose',
+                            "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl),
+                            "X-HTTP-Method": "MERGE",
+                            "If-Match": data.__metadata.etag
+                        }
+                    });
+                }
+                else {
+                    var url = "/web/lists/getbytitle('" + listName + "')/items(" + itemId + ")";
+
+                    var headers = {
                         "X-HTTP-Method": "MERGE",
                         "If-Match": data.__metadata.etag
-                    }
-                });
+                    };
+                    promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, updateData, "POST", headers);
+                }
+
                 promise.then(function (data1) { deff.resolve(data1) }, function (data1) { deff.reject(data1) });
             });
         });
         return deff.promise;
     }
-    this.DeleteListItem = function DeleteListItem(itemId, listName, webUrl) {
+    this.DeleteListItem = function DeleteListItem(itemId, listName, webUrl, hostUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
         var deff = $q.defer();
         $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
-            self.GetItemById(itemId, listName, webUrl).then(function (data) {
-                var promise = $http({
-                    url: data.__metadata.uri,
-                    method: "DELETE",
-                    headers: {
-                        "Accept": "application/json;odata=verbose",
-                        "X-Http-Method": "DELETE",
-                        "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl),
+            self.GetItemById(itemId, listName, webUrl, null, hostUrl).then(function (data) {
+                var promise;
+                if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+                    promise = $http({
+                        url: data.__metadata.uri,
+                        method: "DELETE",
+                        headers: {
+                            "Accept": "application/json;odata=verbose",
+                            "X-Http-Method": "DELETE",
+                            "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl),
+                            "If-Match": data.__metadata.etag
+                        }
+                    });
+                }
+                else {
+                    var headers = {
+                        "X-HTTP-Method": "DELETE",
                         "If-Match": data.__metadata.etag
-                    }
-                });
+                    };
+                    var url = "/web/lists/getbytitle('" + listName + "')/items(" + itemId + ")";
+                    promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, null, "DELETE", headers);
+                }
+
                 promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
+
             });
         });
         return deff.promise;
     }
-    this.GetGroup = function GetGroup(groupName, includeMembers, webUrl) {
+    this.GetGroup = function GetGroup(groupName, includeMembers, webUrl, hostUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
 
-        var url = webUrl + "_api/web/sitegroups?$filter=(Title%20eq%20%27" + groupName + "%27)";
+        var url = "/web/sitegroups?$filter=(Title%20eq%20%27" + groupName + "%27)";
         if (includeMembers)
             url = url + "&$expand=Users";
         var deff = $q.defer();
-        var promise = $http({
-            url: url,
-            method: "GET",
-            headers: { "Accept": "application/json; odata=verbose" }
-        });
+        var promise;
+        if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+            url = webUrl + "_api" + url;
+            promise = $http({
+                url: url,
+                method: "GET",
+                headers: { "Accept": "application/json; odata=verbose" }
+            });
+        }
+        else {
+            promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, null, "GET");
+        }
         promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
         return deff.promise;
     }
-    this.GetSiteUsers = function GetSiteUsers(webUrl, options) {
+    this.GetSiteUsers = function GetSiteUsers(webUrl, options, hostUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
 
-        var url = webUrl + "_api/web/SiteUsers";
+        var url = "/web/SiteUsers";
         if (typeof (options) !== "undefined") {
             var odata = "";
             for (var property in options) {
@@ -295,45 +415,70 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
             url += odata;
         }
         var deff = $q.defer();
-        var promise = $http({
-            url: url,
-            method: "GET",
-            headers: { "Accept": "application/json; odata=verbose" }
-        });
+        var promise;
+        if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+            url = webUrl + "_api" + url;
+            promise = $http({
+                url: url,
+                method: "GET",
+                headers: { "Accept": "application/json; odata=verbose" }
+            });
+        }
+        else {
+            promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, null, "GET");
+        }
 
         promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
         return deff.promise;
     }
-    this.GetUserById = function GetUserById(userId, webUrl) {
+    this.GetUserById = function GetUserById(userId, webUrl, hostUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
-        var url = webUrl + "_api/Web/GetUserById(" + userId + ")";
+        var url = "/Web/GetUserById(" + userId + ")";
         var deff = $q.defer();
-        var promise = $http({
-            url: url,
-            method: "GET",
-            headers: { "Accept": "application/json; odata=verbose" }
-        });
+        var promise;
+        if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+            url = webUrl + "_api" + url;
+            promise = $http({
+                url: url,
+                method: "GET",
+                headers: { "Accept": "application/json; odata=verbose" }
+            });
+        }
+        else {
+            promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, null, "GET");
+        }
         promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
         return deff.promise;
 
     }
-    this.AddUsertoGroup = function AddUsertoGroup(groupId, loginName, webUrl) {
+    this.AddUsertoGroup = function AddUsertoGroup(groupId, loginName, webUrl, hostUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
         var deff = $q.defer();
         $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
             var item = { LoginName: loginName };
             item["__metadata"] = { "type": "SP.User" };
             webUrl = self.SanitizeWebUrl(webUrl);
-            var promise = $http({
-                url: webUrl + "_api/web/sitegroups(" + groupId + ")/users",
-                type: "POST",
-                data: JSON.stringify(item),
-                headers: {
-                    "Accept": "application/json;odata=verbose",
-                    'Content-Type': 'application/json;odata=verbose',
-                    "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
-                }
-            });
+
+            var url = "/web/sitegroups(" + groupId + ")/users";
+
+            var promise;
+            if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+                url = webUrl + "_api" + url;
+                promise = $http({
+                    url: url,
+                    method: "POST",
+                    data: JSON.stringify(item),
+                    headers: {
+                        "Accept": "application/json;odata=verbose",
+                        'Content-Type': 'application/json;odata=verbose',
+                        "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
+                    }
+                });
+            }
+            else {
+                promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, null, "POST");
+            }
+
             promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
         });
         return deff.promise;
@@ -349,7 +494,7 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
         );
         return deffered.promise;
     }
-    this.CreateSubSite = function CreateSubSite(options, webUrl) {
+    this.CreateSubSite = function CreateSubSite(options, webUrl, hostUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
         var createData = {
             parameters: {
@@ -371,53 +516,81 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
         $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
 
             // Once we have the form digest value, we can create the subsite
-            $http({
-                url: webUrl + "_api/web/webinfos/add",
-                type: "POST",
-                headers: {
-                    "accept": "application/json;odata=verbose",
-                    "content-type": "application/json;odata=verbose",
-                    "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
-                },
-                data: JSON.stringify(createData)
-            }).then(function (data) {
+            var url = "/web/webinfos/add";
+
+            var promise;
+            if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+                url = webUrl + "_api" + url;
+                promise = $http({
+                    url: url,
+                    type: "POST",
+                    headers: {
+                        "accept": "application/json;odata=verbose",
+                        "content-type": "application/json;odata=verbose",
+                        "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
+                    },
+                    data: JSON.stringify(createData)
+                });
+            }
+            else {
+                promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, createData, "POST");
+            }
+            
+            promise.then(function (data) {
                 deffered.resolve(self.Support.GetJustTheData(data));
             });
         });
         return deffered.promise;
     }
-    this.GetWebData = function GetWebData(webUrl) {
+    this.GetWebData = function GetWebData(webUrl, hostUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
         var url = webUrl + "_api/web";
 
         var deff = $q.defer();
-        var promise = $http({
-            url: url,
-            method: "GET",
-            headers: { "Accept": "application/json; odata=verbose" }
-        });
+        var promise;
+        if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+            promise = $http({
+                url: url,
+                method: "GET",
+                headers: { "Accept": "application/json; odata=verbose" }
+            });
+        }
+        else {
+            promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, null, "GET");
+        }
         promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
         return deff.promise;
     }
-    this.UpdateWebData = function UpdateWebData(webUrl, updateData) {
+    this.UpdateWebData = function UpdateWebData(webUrl, updateData, hostUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
 
         var deff = $q.defer();
         $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
             updateData.__metadata = { "type": "SP.Web" };
-            self.GetWebData(webUrl).then(function (data) {
-                $http({
-                    url: data.__metadata.uri,
-                    type: "POST",
-                    data: JSON.stringify(updateData),
-                    headers: {
-                        "Accept": "application/json;odata=verbose",
-                        'Content-Type': 'application/json;odata=verbose',
-                        "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl),
-                        "X-HTTP-Method": "MERGE",
+            self.GetWebData(webUrl, hostUrl).then(function (data) {
+                var promise;
+                if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+                    promise = $http({
+                        url: data.__metadata.uri,
+                        type: "POST",
+                        data: JSON.stringify(updateData),
+                        headers: {
+                            "Accept": "application/json;odata=verbose",
+                            'Content-Type': 'application/json;odata=verbose',
+                            "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl),
+                            "X-HTTP-Method": "MERGE",
+                            "If-Match": data.__metadata.etag
+                        }
+                    });
+                }
+                else {
+                    var headers = {
+                        "X-HTTP-Method": "DELETE",
                         "If-Match": data.__metadata.etag
-                    }
-                }).then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
+                    };
+                    promise = self.Support.SendRequestViaExecutor(data.__metadata.uri, webUrl, hostUrl, updateData, "POST", headers);
+                }
+                promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
             });
         });
         return deff.promise;
@@ -430,13 +603,15 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
 
         var deff = $q.defer();
         $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
-            var promise = $http({
+            var promise;
+
+            promise = $http({
                 url: url,
                 method: "POST",
+                transformRequest: [],
                 data: file,
                 headers: {
                     "Accept": "application/json; odata=verbose",
-                    'Content-Type': 'application/json;odata=verbose',
                     "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl)
                 }
             });
@@ -444,6 +619,7 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
         });
         return deff.promise;
     }
+
 
     this.Search = {
         Get: function Get(webUrl, options)
@@ -531,6 +707,84 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
                 ret.Results.push(retObj);
             }
             return ret;
+        }
+    };
+    this.Profile = {
+        GetCurrentUser: function GetCurrentUser(webUrl, options, hostUrl)
+        {
+            webUrl = self.SanitizeWebUrl(webUrl);
+            var url = "/SP.UserProfiles.PeopleManager/GetMyProperties";
+            if (typeof (options) !== "undefined") {
+                var odata = "";
+                for (var property in options) {
+                    if (options.hasOwnProperty(property)) {
+                        if (property === "LoadPage") {
+                            url = options[property];
+                            break;
+                        }
+                        if (odata.length == 0)
+                            odata = "?";
+                        odata += property + "=" + options[property] + "&";
+                    }
+                }
+                if (odata.lastIndexOf("&") == odata.length - 1) {
+                    odata = odata.substring(0, odata.length - 1);
+                }
+                url += odata;
+            }
+            var promise;
+            if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+                url = webUrl + "_api" + url;
+                promise = $http({
+                    url: url,
+                    method: "GET",
+                    headers: { "Accept": "application/json; odata=verbose" }
+                });
+            }
+            else {
+                promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, null, "GET");
+            }
+            var deff = $q.defer();
+            promise.then(function (data) { deff.resolve(self.Support.GetJustTheData(data)) }, function (data) { deff.reject(data) });
+            return deff.promise;
+        },
+        GetForUser: function GetForUser(webUrl, userName, options, hostUrl)
+        {
+            webUrl = self.SanitizeWebUrl(webUrl);
+            var url = "/SP.UserProfiles.PeopleManager/GetPropertiesFor(accountName=@v)?@v='" + userName + "'";
+            if (typeof (options) !== "undefined") {
+                var odata = "";
+                for (var property in options) {
+                    if (options.hasOwnProperty(property)) {
+                        if (property === "LoadPage") {
+                            url = options[property];
+                            break;
+                        }
+                        if (odata.length == 0)
+                            odata = "?";
+                        odata += property + "=" + options[property] + "&";
+                    }
+                }
+                if (odata.lastIndexOf("&") == odata.length - 1) {
+                    odata = odata.substring(0, odata.length - 1);
+                }
+                url += odata;
+            }
+            var promise;
+            if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+                url = webUrl + "_api" + url;
+                promise = $http({
+                    url: url,
+                    method: "GET",
+                    headers: { "Accept": "application/json; odata=verbose" }
+                });
+            }
+            else {
+                promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, null, "GET");
+            }
+            var deff = $q.defer();
+            promise.then(function (data) { deff.resolve(self.Support.GetJustTheData(data)) }, function (data) { deff.reject(data) });
+            return deff.promise;
         }
     };
 }]);
@@ -773,7 +1027,7 @@ angularSP.service('AngularSPCSOM', ['$q', function ($q) {
         });
         return promise;
     }
-    this.GetUserId = function getUserId(loginName, webUrl) {
+    this.GetUserId = function GetUserId(loginName, webUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
         var deff = $q.defer();
         var context = new SP.ClientContext(webUrl);
@@ -907,6 +1161,172 @@ angularSP.service('AngularSPCSOM', ['$q', function ($q) {
             });
         });
         return deff;
+    }
+
+    this.Search = function Get(webUrl, options) {
+        webUrl = self.SanitizeWebUrl(webUrl);
+
+        var clientContext = new SP.ClientContext(webUrl);
+
+        var keywordQuery = new Microsoft.SharePoint.Client.Search.Query.KeywordQuery(clientContext);
+        if (typeof (options.querytext) !== "undefined") {
+            keywordQuery.set_queryText(options.querytext);
+        }
+        if (typeof (options.rowlimit) !== "undefined") {
+            keywordQuery.set_rowLimit(options.rowlimit);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.sortlist) !== "undefined") {
+            keywordQuery.set_sortList(options.sortlist);
+        }
+        if (typeof (options.querytemplate) !== "undefined") {
+            keywordQuery.set_queryTemplate(options.querytemplate);
+        }
+        if (typeof (options.enableinterleaving) !== "undefined") {
+            keywordQuery.set_enableInterleaving(options.enableinterleaving);
+        }
+        if (typeof (options.sourceid) !== "undefined") {
+            keywordQuery.set_sourceId(options.sourceid);
+        }
+        if (typeof (options.rankingmodelid) !== "undefined") {
+            keywordQuery.set_rankingModelId(options.rankingmodelid);
+        }
+        if (typeof (options.startrow) !== "undefined") {
+            keywordQuery.set_startRow(options.startrow);
+        }
+        if (typeof (options.rowsperpage) !== "undefined") {
+            keywordQuery.set_rowsPerPage(options.rowsperpage);
+        }
+        if (typeof (options.selectproperties) !== "undefined") {
+            var selectProperties = keywordQuery.get_selectProperties();
+            var properties = [].concat(options.selectproperties);
+            for (var i = 0; i < properties.length; i++)
+            {
+                selectProperties.add(properties[i]);
+            }
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }
+        if (typeof (options.trimduplicates) !== "undefined") {
+            keywordQuery.set_trimDuplicates(options.trimduplicates);
+        }        
+        
+        /*culture
+        refiners
+        refinementfilters
+        hiddenconstraints
+        enablestemming
+        trimduplicatesincludeid
+        timeout
+        enablenicknames
+        enablephonetic
+        enablefql
+        hithighlightedproperties
+        bypassresulttypes
+        processbestbets
+        clienttype
+        personalizationdata
+        resultsurl
+        querytag
+        enablequeryrules
+        enablesorting*/
+        
+
+        var searchExecutor = new Microsoft.SharePoint.Client.Search.Query.SearchExecutor(clientContext);
+        var results = searchExecutor.executeQuery(keywordQuery);
+
+        var ctx = {
+            results: results
+        };
+        var deff = $q.defer();
+        clientContext.executeQueryAsync(
+            Function.createDelegate(ctx,
+                function () {
+                    var obj = {
+                        ElapsedTime: this.results.m_value.ElapsedTime,
+                        PrimaryQueryResult: {
+                            RefinementResults: [],
+                            RelevantResults: [],
+                            SpecialTermResults: []
+                        },
+                        SpellingSuggestion: this.results.m_value.SpellingSuggestion
+                    };
+                    var results = this.results;
+                    $.each(results.m_value.ResultTables, function (index, table) {
+                        if (table.TableType == "RelevantResults") {
+                            obj.PrimaryQueryResult.RelevantResults = results.m_value.ResultTables[index].ResultRows;
+                        }
+                        else if (table.TableType == "RefinementResults") {
+                            obj.PrimaryQueryResult.RefinementResults = results.m_value.ResultTables[index].ResultRows;
+                        }
+                        else if (table.TableType == "SpecialTermResults") {
+                            obj.PrimaryQueryResult.SpecialTermResults = results.m_value.ResultTables[index].ResultRows;
+                        }
+                    });
+
+                    deff.resolve(obj);
+                }),
+            Function.createDelegate(ctx,
+                function (sender, args) {
+                    deff.reject(args);
+                })
+        );
+
+        return deff.promise;
     }
 }]);
 
