@@ -931,6 +931,70 @@ angularSP.service('AngularSPREST', ['$http', '$q', function ($http, $q) {
         });
         return deff.promise;
     }
+    this.DeleteFileFromFolder = function GetListItems(webUrl, file, hostUrl) {
+        webUrl = self.SanitizeWebUrl(webUrl);
+        var url = webUrl + "_api/web/GetFileByServerRelativeUrl('" + file + "')";
+
+        var deff = $q.defer();
+        $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
+            var promise;
+            if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+                promise = $http({
+                    url: url,
+                    method: "DELETE",
+                    transformRequest: [],
+                    headers: {
+                        "Accept": "application/json;odata=verbose",
+                        "X-Http-Method": "DELETE",
+                        "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl),
+                        "IF-MATCH": "*"
+                    }
+                });
+            }
+            else {
+                promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, null, "DELETE");
+            }
+            promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
+        });
+        return deff.promise;
+    }
+
+    this.SendEmail = function SendEmail(from, to, body, subject, webUrl, hostUrl) {
+        webUrl = self.SanitizeWebUrl(webUrl);
+        var url = webUrl + "_api/SP.Utilities.Utility.SendEmail";
+        var obj = {
+            'properties': {
+                '__metadata': { 'type': 'SP.Utilities.EmailProperties' },
+                'From': from,
+                'To': { 'results': [to] },
+                'Body': body,
+                'Subject': subject
+            }
+        };
+
+        var deff = $q.defer();
+        $q.when(self.GetUpdatedDigest(webUrl)).then(function () {
+            var promise;
+            if (typeof (hostUrl) === "undefined" || hostUrl === null || hostUrl === "") {
+                promise = $http({
+                    url: url,
+                    method: "POST",
+                    transformRequest: [],
+                    headers: {
+                        "Accept": "application/json;odata=verbose",
+                        "X-Http-Method": "POST",
+                        "X-RequestDigest": self.Support.GetCurrentDigestValue(webUrl),
+                        "IF-MATCH": "*"
+                    }
+                });
+            }
+            else {
+                promise = self.Support.SendRequestViaExecutor(url, webUrl, hostUrl, obj, "POST");
+            }
+            promise.then(function (data1) { deff.resolve(self.Support.GetJustTheData(data1)) }, function (data1) { deff.reject(data1) });
+        });
+        return deff.promise;
+    }
 
     this.APIGet = function APIGet(webUrl, apiUrl, options, hostUrl) {
         webUrl = self.SanitizeWebUrl(webUrl);
