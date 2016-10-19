@@ -1,19 +1,15 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--Published:920014D5-5E5A-442D-934A-437E4FB0A4DA-->
 <!--Created:cb85b80c-f585-40ff-8bfc-12ff4d0e34a9-->
-<App xmlns="http://schemas.microsoft.com/sharepoint/2012/app/manifest"
-     Name="TestAngularSP"
-     ProductID="{fe279802-a6d5-4af6-8938-edb25acbe31d}"
-     Version="1.0.0.0"
-     SharePointMinVersion="16.0.0.0"
->
+<App xmlns="http://schemas.microsoft.com/sharepoint/2012/app/manifest" Name="TestAngularSP" ProductID="{fe279802-a6d5-4af6-8938-edb25acbe31d}" Version="1.0.0.0" SharePointMinVersion="16.0.0.0">
   <Properties>
     <Title>TestAngularSP</Title>
     <StartPage>~appWebUrl/Pages/Default.aspx?{StandardTokens}</StartPage>
   </Properties>
-
   <AppPrincipal>
     <Internal />
   </AppPrincipal>
-
-
+  <AppPermissionRequests AllowAppOnlyPolicy="true">
+    <AppPermissionRequest Scope="http://sharepoint/content/sitecollection/web/list" Right="FullControl" />
+  </AppPermissionRequests>
 </App>

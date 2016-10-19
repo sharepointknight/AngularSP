@@ -17,6 +17,19 @@
     <ElementFile Location="Scripts\Controllers\SearchOpsController.js" />
     <ElementFile Location="Scripts\AngularSP.min.js" />
     <ElementFile Location="Scripts\AngularSP.min.js.map" />
+    <ElementFile Location="Scripts\TypeScript\AngularSP.ts" />
+    <ElementFile Location="Scripts\typings\jquery\jquery.d.ts" />
+    <ElementFile Location="Scripts\typings\angularjs\angular.d.ts" />
+    <ElementFile Location="Scripts\typings\angularjs\angular-sanitize.d.ts" />
+    <ElementFile Location="Scripts\typings\angularjs\angular-route.d.ts" />
+    <ElementFile Location="Scripts\typings\angularjs\angular-resource.d.ts" />
+    <ElementFile Location="Scripts\typings\angularjs\angular-mocks.d.ts" />
+    <ElementFile Location="Scripts\typings\angularjs\angular-cookies.d.ts" />
+    <ElementFile Location="Scripts\typings\angularjs\angular-component-router.d.ts" />
+    <ElementFile Location="Scripts\typings\angularjs\angular-animate.d.ts" />
+    <ElementFile Location="Scripts\TypeScript\AngularSP.d.ts" />
+    <ElementFile Location="Scripts\typings\microsoft-ajax\microsoft.ajax.d.ts" />
+    <ElementFile Location="Scripts\typings\sharepoint\SharePoint.d.ts" />
     <ElementManifest Location="Content\Elements.xml" />
     <ElementFile Location="Content\App.css" />
     <ElementFile Location="Content\ListOps.html" />
@@ -26,6 +39,8 @@
     <ElementManifest Location="TestListInstance\Elements.xml" />
     <ElementManifest Location="TestList\Elements.xml" />
     <ElementFile Location="TestList\Schema.xml" />
+    <ElementManifest Location="Elements.xml" />
+    <ElementFile Location="bundleconfig.json" />
   </ElementManifests>
   <UpgradeActions>
     <VersionRange>
@@ -36,6 +51,7 @@
         <ElementManifest Location="Images\Elements.xml" />
         <ElementManifest Location="TestListInstance\Elements.xml" />
         <ElementManifest Location="TestList\Elements.xml" />
+        <ElementManifest Location="Elements.xml" />
       </ApplyElementManifests>
     </VersionRange>
   </UpgradeActions>

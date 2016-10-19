@@ -7,6 +7,9 @@
         <option value="CSOM">CSOM</option>
     </select><br /><br />
 
+    <b>List URL:</b><input type="text" ng-model="ListUrl" /> <br/>
+    <b>List Name:</b><input type="text" ng-model="ListName" /><button type="button" ng-click="GetListItemsHost()">Get List from Host</button>
+
     <h2>Get List Items</h2>
     <input type="button" value="Get List Items" ng-click="GetListItems()" /><br />
 
@@ -17,3 +20,4 @@
     <h2>Create Item</h2>
     <input type="text" ng-model="NewItemTitle" /><input type="button" value="Create Item" ng-click="CreateItem()" />
 </div>
+<script type="text/javascript" src="https://sharepointknight.sharepoint.com/_layouts/15/sp.requestexecutor.js"></script>

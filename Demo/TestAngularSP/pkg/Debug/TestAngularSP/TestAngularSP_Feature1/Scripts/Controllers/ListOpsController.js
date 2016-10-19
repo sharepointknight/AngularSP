@@ -5,7 +5,15 @@ SPKnight.TestApp.App.controller('ListOpsController', ['$scope', '$rootScope', '$
         $scope.Items = [];
         $scope.Method = "REST";
         $scope.NewItemTitle = "";
+        $scope.ListUrl = "";
+        $scope.ListName = "";
 
+        $scope.GetListItemsHost = function GetListItemsHost()
+        {
+            $angularSPRest.GetListItems($scope.ListName, "/TestAngularSP", null, $scope.ListUrl).then(function (items) {
+                $scope.Items = items;
+            });
+        }
         $scope.GetListItems = function GetListItems()
         {
             if($scope.Method === "REST")
@@ -25,7 +33,7 @@ SPKnight.TestApp.App.controller('ListOpsController', ['$scope', '$rootScope', '$
         $scope.UpdateItem = function UpdateItem(item)
         {
             if ($scope.Method === "REST") {
-                $angularSPRest.UpdateListItem(item.ID, "TestList", "/TestAngularSP", { Title: item.Title }).then(function (res) {
+                $angularSPRest.UpdateListItem(item.ID, "TestList", "/TestAngularSP", { Title: item.Title }, $scope.ListUrl).then(function (res) {
                     debugger;
                 });
             }
@@ -38,7 +46,7 @@ SPKnight.TestApp.App.controller('ListOpsController', ['$scope', '$rootScope', '$
         $scope.DeleteItem = function DeleteItem(item)
         {
             if ($scope.Method === "REST") {
-                $angularSPRest.DeleteListItem(item.ID, "TestList", "/TestAngularSP").then(function (res) {
+                $angularSPRest.DeleteListItem(item.ID, "TestList", "/TestAngularSP", $scope.ListUrl).then(function (res) {
                     var index = $scope.Items.indexOf(item);
                     $scope.Items.splice(index, 1);
                 });
@@ -56,7 +64,7 @@ SPKnight.TestApp.App.controller('ListOpsController', ['$scope', '$rootScope', '$
                 Title: $scope.NewItemTitle
             };
             if ($scope.Method === "REST") {
-                $angularSPRest.CreateListItem("TestList", "/TestAngularSP", item).then(function (res) {
+                $angularSPRest.CreateListItem("TestList", "/TestAngularSP", item, $scope.ListUrl).then(function (res) {
                     $scope.NewItemTitle = "";
                     $scope.Items.push(res);
                 });
