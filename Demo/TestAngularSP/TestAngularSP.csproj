@@ -10,11 +10,11 @@
     <RootNamespace>TestAngularSP</RootNamespace>
     <AssemblyName>TestAngularSP</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <TargetOfficeVersion>16.0</TargetOfficeVersion>
+    <TargetOfficeVersion>16.1</TargetOfficeVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{C1CDDADD-2546-481F-9697-4EA41081F2FC};{14822709-B5A1-4724-98CA-57A101D1B079};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <MinimumVisualStudioVersion>12.0</MinimumVisualStudioVersion>
-    <MinimumOfficeToolsVersion>12.1</MinimumOfficeToolsVersion>
+    <MinimumOfficeToolsVersion>12.2</MinimumOfficeToolsVersion>
     <IncludeAssemblyInPackage>False</IncludeAssemblyInPackage>
     <ProjectMode>SharePointApp</ProjectMode>
     <AppFeaturePartId>{cee7f352-e200-4b10-9cf8-6ff469523169}</AppFeaturePartId>
@@ -22,6 +22,11 @@
     <WorkflowPartId>{152482f8-4b8b-472e-8d28-8204c15e1823}</WorkflowPartId>
     <CspkgPartId>{a2137176-3d28-47ae-975e-750d70c8db6a}</CspkgPartId>
     <SqlPackagePartId>{ca65eaaf-5588-4987-9cb7-591169032f54}</SqlPackagePartId>
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+    <UpgradeBackupLocation>
+    </UpgradeBackupLocation>
+    <OldToolsVersion>12.0</OldToolsVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -43,6 +48,7 @@
     <UseVSHostingProcess>false</UseVSHostingProcess>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="Elements.xml" />
     <Content Include="Scripts\AngularSP.min.js">
       <DependentUpon>AngularSP.js</DependentUpon>
     </Content>
@@ -50,6 +56,7 @@
     <Content Include="TestList\Elements.xml" />
     <Content Include="TestList\Schema.xml" />
     <Content Include="TestList\TestListInstance\Elements.xml" />
+    <None Include="bundleconfig.json" />
     <None Include="packages.config" />
     <None Include="Pages\SharePointProjectItem.spdata">
       <SharePointProjectItemId>{fe279802-a6d5-4af6-8938-edb25acbe31d}</SharePointProjectItemId>
@@ -58,8 +65,8 @@
     <Content Include="Content\ListOps.html" />
     <Content Include="Pages\Elements.xml" />
     <Content Include="Pages\Default.aspx" />
-    <None Include="Scripts\AngularSP.min.js.map">
-      <DependentUpon>AngularSP.min.js</DependentUpon>
+    <None Include="SharePointProjectItem.spdata">
+      <SharePointProjectItemId>{0474df87-b688-4d51-b9d2-9058016449ec}</SharePointProjectItemId>
     </None>
     <None Include="TestList\SharePointProjectItem.spdata">
       <SharePointProjectItemId>{529b9a08-4e09-46a8-b0f2-cc4ee56ad9c8}</SharePointProjectItemId>
@@ -119,6 +126,21 @@
     <AppManifestFile Include="AppManifest.xml">
       <SubType>Designer</SubType>
     </AppManifestFile>
+  </ItemGroup>
+  <ItemGroup>
+    <TypeScriptCompile Include="Scripts\TypeScript\AngularSP.d.ts" />
+    <TypeScriptCompile Include="Scripts\TypeScript\AngularSP.ts" />
+    <TypeScriptCompile Include="Scripts\typings\angularjs\angular-animate.d.ts" />
+    <TypeScriptCompile Include="Scripts\typings\angularjs\angular-component-router.d.ts" />
+    <TypeScriptCompile Include="Scripts\typings\angularjs\angular-cookies.d.ts" />
+    <TypeScriptCompile Include="Scripts\typings\angularjs\angular-mocks.d.ts" />
+    <TypeScriptCompile Include="Scripts\typings\angularjs\angular-resource.d.ts" />
+    <TypeScriptCompile Include="Scripts\typings\angularjs\angular-route.d.ts" />
+    <TypeScriptCompile Include="Scripts\typings\angularjs\angular-sanitize.d.ts" />
+    <TypeScriptCompile Include="Scripts\typings\angularjs\angular.d.ts" />
+    <TypeScriptCompile Include="Scripts\typings\jquery\jquery.d.ts" />
+    <TypeScriptCompile Include="Scripts\typings\microsoft-ajax\microsoft.ajax.d.ts" />
+    <TypeScriptCompile Include="Scripts\typings\sharepoint\SharePoint.d.ts" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

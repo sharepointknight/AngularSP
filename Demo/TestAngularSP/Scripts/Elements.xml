@@ -14,5 +14,18 @@
     <File Path="Scripts\Controllers\SearchOpsController.js" Url="Scripts/Controllers/SearchOpsController.js" ReplaceContent="TRUE" />
     <File Path="Scripts\AngularSP.min.js" Url="Scripts/AngularSP.min.js" ReplaceContent="TRUE" />
     <File Path="Scripts\AngularSP.min.js.map" Url="Scripts/AngularSP.min.js.map" ReplaceContent="TRUE" />
+    <File Path="Scripts\TypeScript\AngularSP.ts" Url="Scripts/TypeScript/AngularSP.ts" ReplaceContent="TRUE" />
+    <File Path="Scripts\typings\jquery\jquery.d.ts" Url="Scripts/typings/jquery/jquery.d.ts" ReplaceContent="TRUE" />
+    <File Path="Scripts\typings\angularjs\angular.d.ts" Url="Scripts/typings/angularjs/angular.d.ts" ReplaceContent="TRUE" />
+    <File Path="Scripts\typings\angularjs\angular-sanitize.d.ts" Url="Scripts/typings/angularjs/angular-sanitize.d.ts" ReplaceContent="TRUE" />
+    <File Path="Scripts\typings\angularjs\angular-route.d.ts" Url="Scripts/typings/angularjs/angular-route.d.ts" ReplaceContent="TRUE" />
+    <File Path="Scripts\typings\angularjs\angular-resource.d.ts" Url="Scripts/typings/angularjs/angular-resource.d.ts" ReplaceContent="TRUE" />
+    <File Path="Scripts\typings\angularjs\angular-mocks.d.ts" Url="Scripts/typings/angularjs/angular-mocks.d.ts" ReplaceContent="TRUE" />
+    <File Path="Scripts\typings\angularjs\angular-cookies.d.ts" Url="Scripts/typings/angularjs/angular-cookies.d.ts" ReplaceContent="TRUE" />
+    <File Path="Scripts\typings\angularjs\angular-component-router.d.ts" Url="Scripts/typings/angularjs/angular-component-router.d.ts" ReplaceContent="TRUE" />
+    <File Path="Scripts\typings\angularjs\angular-animate.d.ts" Url="Scripts/typings/angularjs/angular-animate.d.ts" ReplaceContent="TRUE" />
+    <File Path="Scripts\TypeScript\AngularSP.d.ts" Url="Scripts/TypeScript/AngularSP.d.ts" ReplaceContent="TRUE" />
+    <File Path="Scripts\typings\microsoft-ajax\microsoft.ajax.d.ts" Url="Scripts/typings/microsoft-ajax/microsoft.ajax.d.ts" ReplaceContent="TRUE" />
+    <File Path="Scripts\typings\sharepoint\SharePoint.d.ts" Url="Scripts/typings/sharepoint/SharePoint.d.ts" ReplaceContent="TRUE" />
   </Module>
 </Elements>
