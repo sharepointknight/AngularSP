@@ -12,7 +12,7 @@ The Current list of features that we are working on is:
 
 We have now implemented the requests for functionality that we have had so far. Please let us know if there is any functionality that you would like to see added.
 
-If there is a feature that you would like to see sooner please let us know in the [Discussions](https://angularsp.codeplex.com/discussions).
+If there is a feature that you would like to see sooner please let us know in the [Discussions](https://github.com/sharepointknight/AngularSP/issues).
 
 This project was started by Ryan Schouten to make it easier to work with two great products I love. For more information about me visit my blog [SharePoint Knight](http://www.sharepointknight.com)
 
